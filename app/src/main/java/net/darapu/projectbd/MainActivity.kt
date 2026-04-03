@@ -100,7 +100,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(if (showHistoryView) "Activity History" else "ProjectBD") },
+                title = { Text(if (showHistoryView) "Activity History" else "ProjectBD - Fitness") },
                 navigationIcon = {
                     if (showHistoryView) {
                         IconButton(onClick = { showHistoryView = false }) {
