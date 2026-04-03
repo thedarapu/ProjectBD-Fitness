@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.darapu.projectbd.data.local.AppDatabase
+import net.darapu.projectbd.data.repository.ActivityRepository
 import net.darapu.projectbd.data.repository.SettingsRepository
 import net.darapu.projectbd.domain.models.deserializeMealPlan
 import java.time.LocalDate
@@ -33,7 +33,7 @@ data class HomeUiState(
 )
 
 class HomeViewModel(
-    private val database: AppDatabase,
+    private val activityRepository: ActivityRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
@@ -47,46 +47,54 @@ class HomeViewModel(
     private fun loadData() {
         viewModelScope.launch {
             val today = LocalDate.now().toString()
-            val activity = database.dailyActivityDao().getActivityForDate(today)
+            activityRepository.getActivityFlowForDate(today).collect { activity ->
+                val targetSteps = settingsRepository.getTargetSteps()
+                val targetMove = settingsRepository.getTargetActiveCalories()
+                val targetExercise = settingsRepository.getTargetExerciseMinutes()
+                val targetStand = settingsRepository.getTargetStandHours()
 
-            val targetSteps = settingsRepository.getTargetSteps()
-            val targetMove = settingsRepository.getTargetActiveCalories()
-            val targetExercise = settingsRepository.getTargetExerciseMinutes()
-            val targetStand = settingsRepository.getTargetStandHours()
+                val targetCalories = settingsRepository.getTargetCalories()
+                val targetProtein = settingsRepository.getTargetProtein()
+                val targetFat = (targetCalories * 0.25f) / 9f
+                val targetCarbs = (targetCalories - (targetProtein * 4) - (targetFat * 9)) / 4f
 
-            val targetCalories = settingsRepository.getTargetCalories()
-            val targetProtein = settingsRepository.getTargetProtein()
-            val targetFat = (targetCalories * 0.25f) / 9f
-            val targetCarbs = (targetCalories - (targetProtein * 4) - (targetFat * 9)) / 4f
+                val mealPlan = activity?.mealsJson?.let { deserializeMealPlan(it) } ?: emptyList()
+                val eatenMeals = mealPlan.filter { it.isEaten }
+                val totalCal = eatenMeals.sumOf { it.totalCalories.toDouble() }.toFloat()
+                val totalPro = eatenMeals.sumOf { it.totalProtein.toDouble() }.toFloat()
+                val totalCar = eatenMeals.sumOf { it.totalCarbs.toDouble() }.toFloat()
+                val totalFat = eatenMeals.sumOf { it.totalFat.toDouble() }.toFloat()
 
-            val mealPlan = activity?.mealsJson?.let { deserializeMealPlan(it) } ?: emptyList()
-            val eatenMeals = mealPlan.filter { it.isEaten }
-            val totalCal = eatenMeals.sumOf { it.totalCalories.toDouble() }.toFloat()
-            val totalPro = eatenMeals.sumOf { it.totalProtein.toDouble() }.toFloat()
-            val totalCar = eatenMeals.sumOf { it.totalCarbs.toDouble() }.toFloat()
-            val totalFat = eatenMeals.sumOf { it.totalFat.toDouble() }.toFloat()
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    steps = activity?.steps ?: 0,
-                    moveCalories = activity?.moveCalories ?: 0,
-                    exerciseMinutes = activity?.exerciseMinutes ?: 0,
-                    standHours = activity?.standHours ?: 0,
-                    targetSteps = targetSteps,
-                    targetMove = targetMove,
-                    targetExercise = targetExercise,
-                    targetStand = targetStand,
-                    totalCalories = totalCal,
-                    totalProtein = totalPro,
-                    totalCarbs = totalCar,
-                    totalFat = totalFat,
-                    targetCalories = targetCalories,
-                    targetProtein = targetProtein,
-                    targetFat = targetFat,
-                    targetCarbs = targetCarbs
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        steps = activity?.steps ?: 0,
+                        moveCalories = activity?.moveCalories ?: 0,
+                        exerciseMinutes = activity?.exerciseMinutes ?: 0,
+                        standHours = activity?.standHours ?: 0,
+                        targetSteps = targetSteps,
+                        targetMove = targetMove,
+                        targetExercise = targetExercise,
+                        targetStand = targetStand,
+                        totalCalories = totalCal,
+                        totalProtein = totalPro,
+                        totalCarbs = totalCar,
+                        totalFat = totalFat,
+                        targetCalories = targetCalories,
+                        targetProtein = targetProtein,
+                        targetFat = targetFat,
+                        targetCarbs = targetCarbs
+                    )
+                }
             }
+        }
+    }
+
+    fun syncActivity(healthConnectClient: androidx.health.connect.client.HealthConnectClient) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            activityRepository.syncActivity(healthConnectClient)
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 }

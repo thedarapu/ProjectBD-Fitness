@@ -1,5 +1,7 @@
 package net.darapu.projectbd.ui.screens.workout
 
+import net.darapu.projectbd.data.repository.ActivityMetrics
+
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -19,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -48,12 +51,6 @@ import net.darapu.projectbd.domain.models.WorkoutDay
 import java.time.Duration
 import java.time.ZonedDateTime
 
-data class ActivityMetrics(
-    val steps: Long = 0,
-    val activeCalories: Double = 0.0,
-    val exerciseMinutes: Long = 0,
-    val standHours: Int = 0
-)
 
 @Composable
 fun WorkoutScreen(
@@ -90,12 +87,7 @@ fun WorkoutScreen(
 
     val refreshMetrics = {
         if (healthConnectClient != null && permissionsGranted) {
-            coroutineScope.launch {
-                isRefreshing = true
-                val metrics = readActivityMetrics(healthConnectClient)
-                viewModel.updateMetrics(metrics.steps, metrics.activeCalories, metrics.exerciseMinutes, metrics.standHours)
-                isRefreshing = false
-            }
+            viewModel.updateMetrics(healthConnectClient)
         }
     }
 
@@ -122,8 +114,7 @@ fun WorkoutScreen(
                             val allGranted = granted.containsAll(permissions)
                             permissionsGranted = allGranted
                             if (allGranted) {
-                                val metrics = readActivityMetrics(healthConnectClient)
-                                viewModel.updateMetrics(metrics.steps, metrics.activeCalories, metrics.exerciseMinutes, metrics.standHours)
+                                viewModel.updateMetrics(healthConnectClient)
                             }
                         } catch (e: Exception) {
                             Log.e("WorkoutScreen", "Error on resume", e)
@@ -294,16 +285,32 @@ fun WorkoutActivityRings(metrics: ActivityMetrics, goals: ActivityMetrics) {
     val standProgress = if (goals.standHours > 0) (metrics.standHours.toFloat() / goals.standHours.toFloat()) else 0f
     val stepsProgress = if (goals.steps > 0) (metrics.steps.toFloat() / goals.steps.toFloat()) else 0f
 
-    InteractiveActivityRings(
-        rings = listOf(
-            RingData(moveProgress, Color(0xFFFA114F), MetricType.MOVE),
-            RingData(exerciseProgress, Color(0xFFADFF2F), MetricType.EXERCISE),
-            RingData(standProgress, Color(0xFF00FFFF), MetricType.STAND),
-            RingData(stepsProgress, Color(0xFF00FFCC), MetricType.STEPS)
-        ),
-        selectedMetric = selectedMetric,
-        size = 240.dp
-    )
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(260.dp).clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null
+    ) { selectedMetric = MetricType.NONE }) {
+        InteractiveActivityRings(
+            rings = listOf(
+                RingData(moveProgress, Color(0xFFFA114F), MetricType.MOVE),
+                RingData(exerciseProgress, Color(0xFFADFF2F), MetricType.EXERCISE),
+                RingData(standProgress, Color(0xFF00FFFF), MetricType.STAND),
+                RingData(stepsProgress, Color(0xFF00FFCC), MetricType.STEPS)
+            ),
+            selectedMetric = selectedMetric,
+            size = 240.dp
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val (value, label) = when (selectedMetric) {
+                MetricType.MOVE -> "${metrics.activeCalories.toInt()}" to "kcal"
+                MetricType.EXERCISE -> "${metrics.exerciseMinutes}" to "min"
+                MetricType.STAND -> "${metrics.standHours}" to "hr"
+                MetricType.STEPS -> "${metrics.steps}" to "steps"
+                else -> "${metrics.steps}" to "steps"
+            }
+            Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
     
     Spacer(modifier = Modifier.height(16.dp))
     
@@ -340,60 +347,6 @@ fun WorkoutActivityRings(metrics: ActivityMetrics, goals: ActivityMetrics) {
             isSelected = selectedMetric == MetricType.STEPS,
             onClick = { selectedMetric = if (selectedMetric == MetricType.STEPS) MetricType.NONE else MetricType.STEPS }
         )
-    }
-}
-
-suspend fun readActivityMetrics(healthConnectClient: HealthConnectClient): ActivityMetrics {
-    val now = ZonedDateTime.now()
-    val startOfDay = now.toLocalDate().atStartOfDay(now.zone).toInstant()
-    val endOfDay = now.toInstant()
-    
-    return try {
-        val aggregateResponse = healthConnectClient.aggregate(
-            AggregateRequest(
-                metrics = setOf(StepsRecord.COUNT_TOTAL, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
-                timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-            )
-        )
-        
-        val steps = aggregateResponse[StepsRecord.COUNT_TOTAL] ?: 0L
-        val activeCals = aggregateResponse[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
-        
-        val exerciseResponse = healthConnectClient.readRecords(
-            ReadRecordsRequest(
-                recordType = ExerciseSessionRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-            )
-        )
-        val exerciseMillis = exerciseResponse.records.sumOf { 
-            Duration.between(it.startTime, it.endTime).toMillis() 
-        }
-        val exerciseMinutes = exerciseMillis / (1000 * 60)
-        
-        var standHours = 0
-        for (i in 0 until now.hour + 1) {
-            val hourStart = now.toLocalDate().atStartOfDay(now.zone).plusHours(i.toLong()).toInstant()
-            val hourEnd = hourStart.plus(Duration.ofHours(1))
-            
-            val hourAggregate = healthConnectClient.aggregate(
-                AggregateRequest(
-                    metrics = setOf(StepsRecord.COUNT_TOTAL, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
-                    timeRangeFilter = TimeRangeFilter.between(hourStart, if (hourEnd.isBefore(endOfDay)) hourEnd else endOfDay)
-                )
-            )
-            
-            val hourSteps = hourAggregate[StepsRecord.COUNT_TOTAL] ?: 0L
-            val hourCals = hourAggregate[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
-            
-            if (hourSteps > 50 || hourCals > 5.0) {
-                standHours++
-            }
-        }
-
-        ActivityMetrics(steps, activeCals, exerciseMinutes, standHours)
-    } catch (e: Exception) {
-        Log.e("WorkoutScreen", "Error reading health metrics", e)
-        ActivityMetrics()
     }
 }
 

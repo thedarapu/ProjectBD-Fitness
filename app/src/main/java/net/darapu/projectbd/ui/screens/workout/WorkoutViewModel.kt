@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.darapu.projectbd.data.local.AppDatabase
+import net.darapu.projectbd.data.repository.ActivityRepository
 import net.darapu.projectbd.data.local.DailyActivity
 import net.darapu.projectbd.domain.models.WorkoutDay
 import net.darapu.projectbd.data.repository.SettingsRepository
@@ -29,7 +29,7 @@ data class WorkoutUiState(
 )
 
 class WorkoutViewModel(
-    private val database: AppDatabase,
+    private val activityRepository: ActivityRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
@@ -43,73 +43,46 @@ class WorkoutViewModel(
     private fun loadData() {
         viewModelScope.launch {
             val today = LocalDate.now().toString()
-            val activity = database.dailyActivityDao().getActivityForDate(today)
+            activityRepository.getActivityFlowForDate(today).collect { activity ->
+                val stepGoal = settingsRepository.getTargetSteps()
+                val moveGoal = settingsRepository.getTargetActiveCalories()
+                val exerciseGoal = settingsRepository.getTargetExerciseMinutes()
+                val standGoal = settingsRepository.getTargetStandHours()
 
-            val stepGoal = settingsRepository.getTargetSteps()
-            val moveGoal = settingsRepository.getTargetActiveCalories()
-            val exerciseGoal = settingsRepository.getTargetExerciseMinutes()
-            val standGoal = settingsRepository.getTargetStandHours()
+                val planStr = activity?.workoutPlan ?: settingsRepository.getWorkoutPlanJson()
+                val workoutDays = if (planStr != null) deserializeWorkoutPlan(planStr) ?: emptyList() else emptyList()
 
-            val planStr = activity?.workoutPlan ?: settingsRepository.getWorkoutPlanJson()
-            val workoutDays = if (planStr != null) deserializeWorkoutPlan(planStr) ?: emptyList() else emptyList()
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    workoutDays = workoutDays,
-                    stepGoal = stepGoal,
-                    moveGoal = moveGoal,
-                    exerciseGoal = exerciseGoal,
-                    standGoal = standGoal,
-                    steps = activity?.steps?.toLong() ?: 0L,
-                    activeCalories = activity?.moveCalories?.toDouble() ?: 0.0,
-                    exerciseMinutes = activity?.exerciseMinutes?.toLong() ?: 0L,
-                    standHours = activity?.standHours ?: 0
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        workoutDays = workoutDays,
+                        stepGoal = stepGoal,
+                        moveGoal = moveGoal,
+                        exerciseGoal = exerciseGoal,
+                        standGoal = standGoal,
+                        steps = activity?.steps?.toLong() ?: 0L,
+                        activeCalories = activity?.moveCalories?.toDouble() ?: 0.0,
+                        exerciseMinutes = activity?.exerciseMinutes?.toLong() ?: 0L,
+                        standHours = activity?.standHours ?: 0
+                    )
+                }
             }
         }
     }
 
     fun updateWorkoutPlan(updatedPlan: List<WorkoutDay>) {
         viewModelScope.launch {
-            val today = LocalDate.now().toString()
             val serialized = serializeWorkoutPlan(updatedPlan)
-            val existing = database.dailyActivityDao().getActivityForDate(today)
-            database.dailyActivityDao().insertOrUpdate(
-                existing?.copy(workoutPlan = serialized) ?: DailyActivity(date = today, workoutPlan = serialized)
-            )
-
+            activityRepository.updateWorkoutPlan(serialized)
             _uiState.update { it.copy(workoutDays = updatedPlan) }
         }
     }
 
-    fun updateMetrics(steps: Long, activeCalories: Double, exerciseMinutes: Long, standHours: Int) {
+    fun updateMetrics(healthConnectClient: androidx.health.connect.client.HealthConnectClient) {
         viewModelScope.launch {
-            val today = LocalDate.now().toString()
-            val existing = database.dailyActivityDao().getActivityForDate(today)
-            database.dailyActivityDao().insertOrUpdate(
-                existing?.copy(
-                    steps = steps.toInt(),
-                    moveCalories = activeCalories.toInt(),
-                    exerciseMinutes = exerciseMinutes.toInt(),
-                    standHours = standHours
-                ) ?: DailyActivity(
-                    date = today,
-                    steps = steps.toInt(),
-                    moveCalories = activeCalories.toInt(),
-                    exerciseMinutes = exerciseMinutes.toInt(),
-                    standHours = standHours
-                )
-            )
-
-            _uiState.update {
-                it.copy(
-                    steps = steps,
-                    activeCalories = activeCalories,
-                    exerciseMinutes = exerciseMinutes,
-                    standHours = standHours
-                )
-            }
+            _uiState.update { it.copy(isLoading = true) }
+            activityRepository.syncActivity(healthConnectClient)
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 }

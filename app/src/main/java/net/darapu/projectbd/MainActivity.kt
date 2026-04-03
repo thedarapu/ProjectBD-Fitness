@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import net.darapu.projectbd.data.local.AppDatabase
+import net.darapu.projectbd.data.repository.ActivityRepository
 import net.darapu.projectbd.data.repository.SettingsRepository
 import net.darapu.projectbd.ui.screens.config.ConfigScreen
 import net.darapu.projectbd.ui.screens.diet.DietScreen
@@ -83,6 +84,10 @@ sealed class Screen(val route: String, val title: String, val icon: androidx.com
 @Composable
 fun MainScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val database = remember { AppDatabase.getDatabase(context) }
+    val activityRepository = remember { ActivityRepository(database) }
+    val settingsRepository = remember { SettingsRepository(context) }
+    
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -146,15 +151,15 @@ fun MainScreen(modifier: Modifier = Modifier) {
             } else {
                 NavHost(navController = navController, startDestination = Screen.Home.route, modifier = Modifier.fillMaxSize()) {
                     composable(Screen.Home.route) {
-                        val viewModel = remember { HomeViewModel(AppDatabase.getDatabase(context), SettingsRepository(context)) }
+                        val viewModel = remember { HomeViewModel(activityRepository, settingsRepository) }
                         HomeScreen(viewModel = viewModel)
                     }
                     composable(Screen.Diet.route) {
-                        val viewModel = remember { DietViewModel(AppDatabase.getDatabase(context), SettingsRepository(context)) }
+                        val viewModel = remember { DietViewModel(database, settingsRepository) }
                         DietScreen(viewModel = viewModel)
                     }
                     composable(Screen.Workout.route) {
-                        val viewModel = remember { WorkoutViewModel(AppDatabase.getDatabase(context), SettingsRepository(context)) }
+                        val viewModel = remember { WorkoutViewModel(activityRepository, settingsRepository) }
                         WorkoutScreen(viewModel = viewModel)
                     }
                     composable(Screen.Config.route) {

@@ -123,16 +123,15 @@ fun DietScreen(
                     size = 220.dp
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val centerVal = when(selectedDietMetric) {
-                        MetricType.MOVE -> uiState.totalCalories.roundToInt()
-                        MetricType.EXERCISE -> uiState.totalProtein.roundToInt()
-                        MetricType.STAND -> uiState.totalCarbs.roundToInt()
-                        MetricType.STEPS -> uiState.totalFat.roundToInt()
-                        else -> uiState.totalCalories.roundToInt()
+                    val (value, label) = when (selectedDietMetric) {
+                        MetricType.MOVE -> "${uiState.totalCalories.roundToInt()}" to "kcal"
+                        MetricType.EXERCISE -> "${uiState.totalProtein.roundToInt()}" to "protein"
+                        MetricType.STAND -> "${uiState.totalCarbs.roundToInt()}" to "carbs"
+                        MetricType.STEPS -> "${uiState.totalFat.roundToInt()}" to "fat"
+                        else -> "${uiState.totalCalories.roundToInt()}" to "kcal"
                     }
-                    val centerUnit = if (selectedDietMetric == MetricType.MOVE || selectedDietMetric == MetricType.NONE) "kcal" else "g"
-                    Text(text = "$centerVal", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text(text = centerUnit, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

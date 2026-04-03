@@ -21,6 +21,9 @@ interface DailyActivityDao {
     @Query("SELECT * FROM daily_activity WHERE date = :date")
     suspend fun getActivityForDate(date: String): DailyActivity?
 
+    @Query("SELECT * FROM daily_activity WHERE date = :date")
+    fun getActivityFlowForDate(date: String): Flow<DailyActivity?>
+
     @Query("SELECT * FROM daily_activity ORDER BY date DESC")
     fun getAllActivities(): Flow<List<DailyActivity>>
 
