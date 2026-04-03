@@ -2,17 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Permissions needed to run in the background and wake the screen -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Health Connect Permissions -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
@@ -61,42 +54,6 @@
             android:name="health_permissions"
             android:resource="@array/health_permissions" />
 
-        <activity
-            android:name=".UnlockAndLaunchActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:excludeFromRecents="true" />
-
-        <service
-            android:name=".WifiToggleTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_wifi_custom"
-            android:label="ProjectBD wifi toggle"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <service
-            android:name=".WifiAccessibilityService"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:label="ProjectBD Wi-Fi Automator">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
-
-        <receiver android:name=".BluetoothReceiver" android:exported="true">
-            <intent-filter>
-                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
-                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
-            </intent-filter>
-        </receiver>
 
     </application>
 

@@ -1,15 +1,8 @@
 package net.darapu.projectbd.ui.screens.config
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.bluetooth.BluetoothManager
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -82,13 +75,7 @@ fun ConfigScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Automation", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(16.dp))
-                HotspotConfigSection()
-            }
-        }
+
         
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -234,164 +221,7 @@ fun FitnessConfigSection() {
     }
 }
 
-@SuppressLint("MissingPermission")
-@Composable
-fun BluetoothDeviceSelector(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val sharedPrefs = remember { context.getSharedPreferences("ProjectBDPrefs", Context.MODE_PRIVATE) }
-    
-    var selectedDevices by remember {
-        mutableStateOf(
-            sharedPrefs.getStringSet("target_bluetooth_devices", null) ?: run {
-                val oldMac = sharedPrefs.getString("target_bluetooth_mac", null)
-                val oldName = sharedPrefs.getString("target_bluetooth_name", "Unknown")
-                if (oldMac != null) setOf("$oldMac|$oldName") else emptySet()
-            }
-        )
-    }
-    
-    var showDialog by remember { mutableStateOf(false) }
-    var tempSelected by remember { mutableStateOf(selectedDevices) }
-    var pairedDevices by remember { mutableStateOf<List<Pair<String?, String>>>(emptyList()) }
-    
-    val permissionToRequest = Manifest.permission.BLUETOOTH_CONNECT
 
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val adapter = bluetoothManager.adapter
-            if (adapter != null && adapter.isEnabled) {
-                try {
-                    pairedDevices = adapter.bondedDevices.map { it.name to it.address }
-                    tempSelected = selectedDevices
-                    showDialog = true
-                } catch (_: SecurityException) { }
-            }
-        }
-    }
-
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Target Bluetooth Devices for Hotspot:", modifier = Modifier.padding(horizontal = 16.dp))
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        if (selectedDevices.isEmpty()) {
-            Text("- None", fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp))
-        } else {
-            selectedDevices.forEach {
-                val name = it.split("|", limit = 2).getOrNull(1) ?: "Unknown"
-                Text("- $name", fontSize = 14.sp, modifier = Modifier.padding(horizontal = 16.dp))
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Button(onClick = {
-            if (ContextCompat.checkSelfPermission(context, permissionToRequest) == PackageManager.PERMISSION_GRANTED) {
-                val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-                val adapter = bluetoothManager.adapter
-                if (adapter != null && adapter.isEnabled) {
-                    try {
-                        pairedDevices = adapter.bondedDevices.map { it.name to it.address }
-                        tempSelected = selectedDevices
-                        showDialog = true
-                    } catch (_: SecurityException) { }
-                }
-            } else {
-                launcher.launch(permissionToRequest)
-            }
-        }) {
-            Text("Select Devices")
-        }
-    }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Select Paired Devices") },
-            text = {
-                LazyColumn {
-                    items(pairedDevices.size) { index ->
-                        val (name, mac) = pairedDevices[index]
-                        val displayName = name ?: "Unknown Device ($mac)"
-                        val entry = "$mac|$displayName"
-                        val isSelected = tempSelected.any { it.startsWith("$mac|") }
-                        
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    tempSelected = if (isSelected) {
-                                        tempSelected.filterNot { it.startsWith("$mac|") }.toSet()
-                                    } else {
-                                        tempSelected + entry
-                                    }
-                                }
-                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = null
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(text = displayName)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    selectedDevices = tempSelected
-                    sharedPrefs.edit { putStringSet("target_bluetooth_devices", tempSelected) }
-                    showDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun HotspotConfigSection() {
-    val context = LocalContext.current
-    val sharedPrefs = remember { context.getSharedPreferences("ProjectBDPrefs", Context.MODE_PRIVATE) }
-    var minBattery by remember { mutableFloatStateOf(sharedPrefs.getInt("min_battery_level", 20).toFloat()) }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = "To enable auto Hotspot toggling:", modifier = Modifier.padding(horizontal = 16.dp))
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = {
-            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }) {
-            Text(text = "Open Accessibility Settings")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text("Battery Protection Limit: ${minBattery.toInt()}%")
-        Slider(
-            value = minBattery,
-            onValueChange = {
-                minBattery = it
-                sharedPrefs.edit { putInt("min_battery_level", it.toInt()) }
-            },
-            valueRange = 0f..100f,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        Text("Hotspot won't turn on if battery is below this level.", fontSize = 12.sp, textAlign = TextAlign.Center)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        BluetoothDeviceSelector()
-    }
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

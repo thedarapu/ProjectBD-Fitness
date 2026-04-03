@@ -1,4 +1,3 @@
 <resources>
-    <string name="app_name">ProjectBD</string>
-    <string name="accessibility_service_description">This service automatically toggles Wi-Fi when the settings panel is opened by the Quick Settings Tile.</string>
+    <string name="app_name">ProjectBD - Fitness</string>
 </resources>
