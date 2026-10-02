@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="400dp"
+    android:viewportWidth="200"
+    android:viewportHeight="400">
+    <!-- Simplified Head and Torso -->
+    <path
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="2"
+        android:pathData="M100,20 m-15,0 a15,15 0 1,1 30,0 a15,15 0 1,1 -30,0 M100,35 L100,150 M70,50 L130,50 L130,150 L70,150 Z"/>
+    <!-- Simplified Arms and Legs -->
+    <path
+        android:strokeColor="#CCCCCC"
+        android:strokeWidth="3"
+        android:pathData="M70,50 L40,120 M130,50 L160,120 M80,150 L70,250 M120,150 L130,250"/>
+</vector>

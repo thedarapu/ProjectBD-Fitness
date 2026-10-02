@@ -19,24 +19,27 @@ class SettingsRepository(context: Context) {
     fun getTargetStandHours(): Int = prefs.getInt("target_stand_hours", 12)
 
     fun getTargetCalories(): Float = prefs.getFloat("target_calories", 2000f)
-    fun getTargetProtein(): Float = prefs.getFloat("target_protein", 150f)
-
+    
     fun getWorkoutPlanJson(): String? = prefs.getString("workout_plan_json", null)
     
-    fun saveMacroTargets(calories: Float, protein: Float) {
+    fun getExperienceLevel(): String = prefs.getString("experience_level", "BEGINNER") ?: "BEGINNER"
+    fun getEquipmentProfile(): String = prefs.getString("equipment_profile", "FULL_GYM") ?: "FULL_GYM"
+    fun getDaysToTrain(): Int = prefs.getInt("days_to_train", 3)
+
+    fun saveLiftingProfile(experience: String, equipment: String, daysToTrain: Int) {
         prefs.edit {
-            putFloat("target_calories", calories)
-            putFloat("target_protein", protein)
+            putString("experience_level", experience)
+            putString("equipment_profile", equipment)
+            putInt("days_to_train", daysToTrain)
         }
     }
 
-    fun saveFitnessTargets(steps: Int, calories: Int, minutes: Int, standHours: Int, workoutDays: Int) {
+    fun saveFitnessTargets(steps: Int, calories: Int, minutes: Int, standHours: Int) {
         prefs.edit {
             putInt("target_steps", steps)
             putInt("target_active_calories", calories)
             putInt("target_exercise_minutes", minutes)
             putInt("target_stand_hours", standHours)
-            putInt("workout_days", workoutDays)
         }
     }
 }

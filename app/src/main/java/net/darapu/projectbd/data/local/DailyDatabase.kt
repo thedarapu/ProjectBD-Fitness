@@ -11,9 +11,9 @@ data class DailyActivity(
     val moveCalories: Int = 0,
     val exerciseMinutes: Int = 0,
     val standHours: Int = 0,
+    val mealsJson: String? = null,
     val workoutPlan: String? = null,
-    val workoutCompleted: Boolean = false,
-    val mealsJson: String? = null
+    val workoutCompleted: Boolean = false
 )
 
 @Dao
@@ -31,7 +31,7 @@ interface DailyActivityDao {
     suspend fun insertOrUpdate(activity: DailyActivity)
 }
 
-@Database(entities = [DailyActivity::class], version = 3) // Version bumped from 2 to 3
+@Database(entities = [DailyActivity::class], version = 4) // Version bumped from 3 to 4
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dailyActivityDao(): DailyActivityDao
 

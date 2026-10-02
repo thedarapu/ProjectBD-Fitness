@@ -1,12 +1,38 @@
 package net.darapu.projectbd.domain.usecase
 
 import net.darapu.projectbd.domain.models.Exercise
+import net.darapu.projectbd.domain.models.MuscleGroup
 import net.darapu.projectbd.domain.models.WorkoutDay
 import net.darapu.projectbd.domain.models.serializeWorkoutPlan
 
 object WorkoutPlanGenerator {
     private fun createExercises(list: String): List<Exercise> {
-        return list.split(", ").map { Exercise(it, 3, "8-12", "Moderate") }
+        return list.split(", ").map { name ->
+            val (primary, secondary) = getMusclesForExercise(name)
+            Exercise(
+                name = name,
+                targetSets = 3,
+                targetReps = "8-12",
+                targetWeight = "Moderate",
+                primaryMuscles = primary,
+                secondaryMuscles = secondary
+            )
+        }
+    }
+
+    private fun getMusclesForExercise(name: String): Pair<List<MuscleGroup>, List<MuscleGroup>> {
+        return when {
+            name.contains("Bench Press") -> listOf(MuscleGroup.CHEST) to listOf(MuscleGroup.TRICEPS, MuscleGroup.SHOULDERS)
+            name.contains("Overhead Press") -> listOf(MuscleGroup.SHOULDERS) to listOf(MuscleGroup.TRICEPS)
+            name.contains("Squats") || name.contains("Leg Press") -> listOf(MuscleGroup.QUADS) to listOf(MuscleGroup.CALVES)
+            name.contains("Lat Pulldown") || name.contains("Rows") -> listOf(MuscleGroup.BACK) to listOf(MuscleGroup.BICEPS)
+            name.contains("Bicep Curls") -> listOf(MuscleGroup.BICEPS) to emptyList()
+            name.contains("Tricep Pushdowns") -> listOf(MuscleGroup.TRICEPS) to emptyList()
+            name.contains("Leg Curl") -> listOf(MuscleGroup.HAMSTRINGS) to emptyList()
+            name.contains("Calf Raises") -> listOf(MuscleGroup.CALVES) to emptyList()
+            name.contains("Face Pulls") || name.contains("Lateral Raises") -> listOf(MuscleGroup.SHOULDERS) to emptyList()
+            else -> emptyList<MuscleGroup>() to emptyList<MuscleGroup>()
+        }
     }
 
     fun generatePlan(days: Int, goals: Set<String>): String {

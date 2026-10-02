@@ -25,7 +25,9 @@ data class WorkoutUiState(
     val steps: Long = 0,
     val activeCalories: Double = 0.0,
     val exerciseMinutes: Long = 0,
-    val standHours: Int = 0
+    val standHours: Int = 0,
+    val restTimerSeconds: Int = 0,
+    val isTimerRunning: Boolean = false
 )
 
 class WorkoutViewModel(
@@ -36,8 +38,29 @@ class WorkoutViewModel(
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
+    private var timerJob: kotlinx.coroutines.Job? = null
+
     init {
         loadData()
+    }
+
+    fun startRestTimer(seconds: Int) {
+        timerJob?.cancel()
+        _uiState.update { it.copy(restTimerSeconds = seconds, isTimerRunning = true) }
+        timerJob = viewModelScope.launch {
+            var remaining = seconds
+            while (remaining > 0) {
+                kotlinx.coroutines.delay(1000L)
+                remaining--
+                _uiState.update { it.copy(restTimerSeconds = remaining) }
+            }
+            _uiState.update { it.copy(isTimerRunning = false) }
+        }
+    }
+
+    fun cancelRestTimer() {
+        timerJob?.cancel()
+        _uiState.update { it.copy(isTimerRunning = false, restTimerSeconds = 0) }
     }
 
     private fun loadData() {
@@ -78,11 +101,14 @@ class WorkoutViewModel(
         }
     }
 
-    fun updateMetrics(healthConnectClient: androidx.health.connect.client.HealthConnectClient) {
+    fun updateMetrics(
+        healthConnectClient: androidx.health.connect.client.HealthConnectClient,
+        isSilent: Boolean = false
+    ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            if (!isSilent) _uiState.update { it.copy(isLoading = true) }
             activityRepository.syncActivity(healthConnectClient)
-            _uiState.update { it.copy(isLoading = false) }
+            if (!isSilent) _uiState.update { it.copy(isLoading = false) }
         }
     }
 }

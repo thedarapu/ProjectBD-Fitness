@@ -4,6 +4,10 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 
+enum class MuscleGroup {
+    CHEST, BACK, QUADS, HAMSTRINGS, SHOULDERS, BICEPS, TRICEPS, CORE, CALVES
+}
+
 data class SetRecord(
     var reps: String = "",
     var weight: String = ""
@@ -14,7 +18,9 @@ data class Exercise(
     val targetSets: Int,
     val targetReps: String,
     val targetWeight: String,
-    val sets: MutableList<SetRecord> = mutableListOf()
+    val sets: MutableList<SetRecord> = mutableListOf(),
+    val primaryMuscles: List<MuscleGroup> = emptyList(),
+    val secondaryMuscles: List<MuscleGroup> = emptyList()
 )
 
 data class WorkoutDay(
@@ -35,6 +41,14 @@ fun serializeWorkoutPlan(plan: List<WorkoutDay>): String {
             exObj.put("targetReps", exercise.targetReps)
             exObj.put("targetWeight", exercise.targetWeight)
             
+            val primaryArray = JSONArray()
+            exercise.primaryMuscles.forEach { primaryArray.put(it.name) }
+            exObj.put("primaryMuscles", primaryArray)
+
+            val secondaryArray = JSONArray()
+            exercise.secondaryMuscles.forEach { secondaryArray.put(it.name) }
+            exObj.put("secondaryMuscles", secondaryArray)
+
             val setsArray = JSONArray()
             exercise.sets.forEach { set ->
                 val setObj = JSONObject()
@@ -77,13 +91,29 @@ fun deserializeWorkoutPlan(jsonStr: String): List<WorkoutDay>? {
                     repeat(targetSetsCount) { sets.add(SetRecord()) }
                 }
 
+                val primaryMuscles = mutableListOf<MuscleGroup>()
+                exObj.optJSONArray("primaryMuscles")?.let { arr ->
+                    for (k in 0 until arr.length()) {
+                        try { primaryMuscles.add(MuscleGroup.valueOf(arr.getString(k))) } catch(e: Exception) {}
+                    }
+                }
+
+                val secondaryMuscles = mutableListOf<MuscleGroup>()
+                exObj.optJSONArray("secondaryMuscles")?.let { arr ->
+                    for (k in 0 until arr.length()) {
+                        try { secondaryMuscles.add(MuscleGroup.valueOf(arr.getString(k))) } catch(e: Exception) {}
+                    }
+                }
+
                 exercises.add(
                     Exercise(
                         exObj.getString("name"),
                         exObj.optInt("targetSets", exObj.optInt("sets", 3)),
                         exObj.optString("targetReps", exObj.optString("reps", "8-12")),
                         exObj.optString("targetWeight", exObj.optString("weight", "Target")),
-                        sets
+                        sets,
+                        primaryMuscles,
+                        secondaryMuscles
                     )
                 )
             }

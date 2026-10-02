@@ -115,72 +115,36 @@ fun HomeScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp, horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.Top
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp, horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // FITNESS RINGS
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Fitness", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(165.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { selectedFitnessMetric = MetricType.NONE }) {
-                        InteractiveActivityRings(
-                            rings = listOf(
-                                RingData((uiState.moveCalories).toFloat() / uiState.targetMove.coerceAtLeast(1), Color(0xFFFA114F), MetricType.MOVE),
-                                RingData((uiState.exerciseMinutes).toFloat() / uiState.targetExercise.coerceAtLeast(1), Color(0xFFADFF2F), MetricType.EXERCISE),
-                                RingData((uiState.standHours).toFloat() / uiState.targetStand.coerceAtLeast(1), Color(0xFF00FFFF), MetricType.STAND),
-                                RingData((uiState.steps).toFloat() / uiState.targetSteps.coerceAtLeast(1), Color(0xFF00FFCC), MetricType.STEPS)
-                            ),
-                            selectedMetric = selectedFitnessMetric,
-                            size = 155.dp
-                        )
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val (value, label) = when (selectedFitnessMetric) {
-                                MetricType.MOVE -> "${uiState.moveCalories}" to "kcal"
-                                MetricType.EXERCISE -> "${uiState.exerciseMinutes}" to "min"
-                                MetricType.STAND -> "${uiState.standHours}" to "hr"
-                                MetricType.STEPS -> "${uiState.steps}" to "steps"
-                                else -> "${uiState.steps}" to "steps"
-                            }
-                            Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                            Text(text = label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Fitness Progress", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp).clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { selectedFitnessMetric = MetricType.NONE }) {
+                    InteractiveActivityRings(
+                        rings = listOf(
+                            RingData((uiState.moveCalories).toFloat() / uiState.targetMove.coerceAtLeast(1), Color(0xFFFA114F), MetricType.MOVE),
+                            RingData((uiState.exerciseMinutes).toFloat() / uiState.targetExercise.coerceAtLeast(1), Color(0xFFADFF2F), MetricType.EXERCISE),
+                            RingData((uiState.standHours).toFloat() / uiState.targetStand.coerceAtLeast(1), Color(0xFF00FFFF), MetricType.STAND),
+                            RingData((uiState.steps).toFloat() / uiState.targetSteps.coerceAtLeast(1), Color(0xFF00FFCC), MetricType.STEPS)
+                        ),
+                        selectedMetric = selectedFitnessMetric,
+                        size = 190.dp
+                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val (value, label) = when (selectedFitnessMetric) {
+                            MetricType.MOVE -> "${uiState.moveCalories}" to "kcal"
+                            MetricType.EXERCISE -> "${uiState.exerciseMinutes}" to "min"
+                            MetricType.STAND -> "${uiState.standHours}" to "hr"
+                            MetricType.STEPS -> "${uiState.steps}" to "steps"
+                            else -> "${uiState.steps}" to "steps"
                         }
-                    }
-                }
-
-                // NUTRITION RINGS
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Nutrition", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(165.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { selectedDietMetric = MetricType.NONE }) {
-                        InteractiveActivityRings(
-                            rings = listOf(
-                                RingData(uiState.totalCalories / uiState.targetCalories.coerceAtLeast(1f), Color(0xFFFFA500), MetricType.MOVE),
-                                RingData(uiState.totalProtein / uiState.targetProtein.coerceAtLeast(1f), Color(0xFF9370DB), MetricType.EXERCISE),
-                                RingData(uiState.totalCarbs / uiState.targetCarbs.coerceAtLeast(1f), Color(0xFFFFD700), MetricType.STAND),
-                                RingData(uiState.totalFat / uiState.targetFat.coerceAtLeast(1f), Color(0xFFFF69B4), MetricType.STEPS)
-                            ),
-                            selectedMetric = selectedDietMetric,
-                            size = 155.dp
-                        )
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            val (value, label) = when (selectedDietMetric) {
-                                MetricType.MOVE -> "${uiState.totalCalories.roundToInt()}" to "kcal"
-                                MetricType.EXERCISE -> "${uiState.totalProtein.roundToInt()}" to "protein"
-                                MetricType.STAND -> "${uiState.totalCarbs.roundToInt()}" to "carbs"
-                                MetricType.STEPS -> "${uiState.totalFat.roundToInt()}" to "fat"
-                                else -> "${uiState.totalCalories.roundToInt()}" to "kcal"
-                            }
-                            Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                            Text(text = label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -195,14 +159,10 @@ fun HomeScreen(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Fitness Legend
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MetricDetailRow(
+                        modifier = Modifier.weight(1f),
                         label = "Move", 
                         value = "${uiState.moveCalories} kcal", 
                         color = Color(0xFFFA114F),
@@ -211,14 +171,18 @@ fun HomeScreen(
                         onClick = { selectedFitnessMetric = if (selectedFitnessMetric == MetricType.MOVE) MetricType.NONE else MetricType.MOVE }
                     )
                     MetricDetailRow(
-                        label = "Ex", 
+                        modifier = Modifier.weight(1f),
+                        label = "Exercise", 
                         value = "${uiState.exerciseMinutes} min", 
                         color = Color(0xFFADFF2F),
                         icon = Icons.Default.Timer,
                         isSelected = selectedFitnessMetric == MetricType.EXERCISE,
                         onClick = { selectedFitnessMetric = if (selectedFitnessMetric == MetricType.EXERCISE) MetricType.NONE else MetricType.EXERCISE }
                     )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MetricDetailRow(
+                        modifier = Modifier.weight(1f),
                         label = "Stand", 
                         value = "${uiState.standHours} hr", 
                         color = Color(0xFF00FFFF),
@@ -227,6 +191,7 @@ fun HomeScreen(
                         onClick = { selectedFitnessMetric = if (selectedFitnessMetric == MetricType.STAND) MetricType.NONE else MetricType.STAND }
                     )
                     MetricDetailRow(
+                        modifier = Modifier.weight(1f),
                         label = "Steps", 
                         value = "${uiState.steps}", 
                         color = Color(0xFF00FFCC),
@@ -235,51 +200,28 @@ fun HomeScreen(
                         onClick = { selectedFitnessMetric = if (selectedFitnessMetric == MetricType.STEPS) MetricType.NONE else MetricType.STEPS }
                     )
                 }
-
-                VerticalDivider(
-                    modifier = Modifier.height(130.dp),
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                )
-
-                // Diet Legend
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    MetricDetailRow(
-                        label = "Cals", 
-                        value = "${uiState.totalCalories.roundToInt()} kcal", 
-                        color = Color(0xFFFFA500),
-                        icon = Icons.Default.Restaurant,
-                        isSelected = selectedDietMetric == MetricType.MOVE, 
-                        onClick = { selectedDietMetric = if (selectedDietMetric == MetricType.MOVE) MetricType.NONE else MetricType.MOVE }
-                    )
-                    MetricDetailRow(
-                        label = "Prot", 
-                        value = "${uiState.totalProtein.roundToInt()} g", 
-                        color = Color(0xFF9370DB),
-                        icon = Icons.Default.Egg,
-                        isSelected = selectedDietMetric == MetricType.EXERCISE,
-                        onClick = { selectedDietMetric = if (selectedDietMetric == MetricType.EXERCISE) MetricType.NONE else MetricType.EXERCISE }
-                    )
-                    MetricDetailRow(
-                        label = "Carbs", 
-                        value = "${uiState.totalCarbs.roundToInt()} g", 
-                        color = Color(0xFFFFD700),
-                        icon = Icons.Default.BakeryDining,
-                        isSelected = selectedDietMetric == MetricType.STAND,
-                        onClick = { selectedDietMetric = if (selectedDietMetric == MetricType.STAND) MetricType.NONE else MetricType.STAND }
-                    )
-                    MetricDetailRow(
-                        label = "Fat", 
-                        value = "${uiState.totalFat.roundToInt()} g", 
-                        color = Color(0xFFFF69B4),
-                        icon = Icons.Default.Icecream,
-                        isSelected = selectedDietMetric == MetricType.STEPS,
-                        onClick = { selectedDietMetric = if (selectedDietMetric == MetricType.STEPS) MetricType.NONE else MetricType.STEPS }
-                    )
-                }
             }
         }
         
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // WORKOUT FREQUENCY PLACEHOLDER
+        Card(
+            modifier = Modifier.fillMaxWidth().height(160.dp),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.BarChart, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Workout Frequency Analysis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Coming Soon", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
     }
 }

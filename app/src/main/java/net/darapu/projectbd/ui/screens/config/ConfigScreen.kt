@@ -29,10 +29,7 @@ import androidx.core.content.edit
 import kotlinx.coroutines.launch
 import net.darapu.projectbd.data.local.AppDatabase
 import net.darapu.projectbd.data.local.DailyActivity
-import net.darapu.projectbd.domain.models.ActivityLevel
-import net.darapu.projectbd.domain.usecase.CalculateMacrosUseCase
 import net.darapu.projectbd.domain.usecase.WorkoutPlanGenerator
-import net.darapu.projectbd.ui.components.ModernDatePickerDialog
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.max
@@ -56,14 +53,6 @@ fun ConfigScreen(modifier: Modifier = Modifier) {
                 Text("App Settings", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
                 AppSettingsSection()
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Diet Profile", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(16.dp))
-                DietConfigSection()
             }
         }
 
@@ -223,168 +212,4 @@ fun FitnessConfigSection() {
 
 
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun DietConfigSection() {
-    val context = LocalContext.current
-    val sharedPrefs = remember { context.getSharedPreferences("ProjectBDPrefs", Context.MODE_PRIVATE) }
-    
-    var dobText by remember { mutableStateOf(sharedPrefs.getString("user_dob", "") ?: "") }
-    var ageYears by remember { mutableIntStateOf(sharedPrefs.getInt("user_age", 25)) }
-    var weightLbs by remember { mutableStateOf(sharedPrefs.getString("user_weight", "150") ?: "150") }
-    var heightFt by remember { mutableStateOf(sharedPrefs.getString("user_height_ft", "5") ?: "5") }
-    var heightIn by remember { mutableStateOf(sharedPrefs.getString("user_height_in", "9") ?: "9") }
-    var isMale by remember { mutableStateOf(sharedPrefs.getBoolean("user_is_male", true)) }
-    
-    val savedActivityStr = sharedPrefs.getString("user_activity_level", ActivityLevel.LIGHTLY_ACTIVE.name)
-    var selectedActivityLevel by remember { mutableStateOf(ActivityLevel.valueOf(savedActivityStr ?: ActivityLevel.LIGHTLY_ACTIVE.name)) }
-    
-    val savedGoals = sharedPrefs.getStringSet("user_goals", setOf("Build Muscle")) ?: setOf("Build Muscle")
-    var selectedGoals by remember { mutableStateOf(savedGoals) }
-    val availableGoals = listOf("Fat Loss", "Build Muscle", "Stamina", "Flexibility", "Maintenance")
-
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    if (showDatePicker) {
-        ModernDatePickerDialog(
-            onDateSelected = { millis ->
-                if (millis != null) {
-                    val sdf = SimpleDateFormat("MM/dd/yyyy", Locale.US)
-                    val date = Date(millis)
-                    dobText = sdf.format(date)
-                    
-                    val dobCalendar = Calendar.getInstance().apply { time = date }
-                    val today = Calendar.getInstance()
-                    var age = today.get(Calendar.YEAR) - dobCalendar.get(Calendar.YEAR)
-                    if (today.get(Calendar.DAY_OF_YEAR) < dobCalendar.get(Calendar.DAY_OF_YEAR)) {
-                        age--
-                    }
-                    ageYears = max(0, age)
-                }
-            },
-            onDismiss = { showDatePicker = false }
-        )
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        OutlinedButton(
-            onClick = { showDatePicker = true },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            shape = RoundedCornerShape(4.dp)
-        ) {
-            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-            Text(text = if (dobText.isEmpty()) "Select Date of Birth" else "DOB: $dobText (Age: $ageYears)")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = weightLbs, onValueChange = { weightLbs = it },
-            label = { Text("Weight (lbs)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = heightFt, onValueChange = { heightFt = it },
-                label = { Text("Height (ft)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedTextField(
-                value = heightIn, onValueChange = { heightIn = it },
-                label = { Text("Height (in)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(selected = isMale, onClick = { isMale = true })
-                Text("Male")
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(selected = !isMale, onClick = { isMale = false })
-                Text("Female")
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Activity Level:", fontWeight = FontWeight.Bold)
-        var expanded by remember { mutableStateOf(false) }
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(selectedActivityLevel.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() })
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ActivityLevel.entries.forEach { level ->
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(level.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() })
-                                Text(level.description, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        },
-                        onClick = {
-                            selectedActivityLevel = level
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Goals:", fontWeight = FontWeight.Bold)
-        FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            availableGoals.forEach { goalOption ->
-                FilterChip(
-                    selected = selectedGoals.contains(goalOption),
-                    onClick = {
-                        selectedGoals = if (selectedGoals.contains(goalOption)) {
-                            selectedGoals - goalOption
-                        } else {
-                            selectedGoals + goalOption
-                        }
-                    },
-                    label = { Text(goalOption) }
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = {
-                val targets = CalculateMacrosUseCase().invoke(
-                    weightLbs = weightLbs.toFloatOrNull() ?: 150f,
-                    heightFt = heightFt.toFloatOrNull() ?: 5f,
-                    heightIn = heightIn.toFloatOrNull() ?: 9f,
-                    ageYears = ageYears,
-                    isMale = isMale,
-                    activityLevel = selectedActivityLevel,
-                    goals = selectedGoals
-                )
-                
-                sharedPrefs.edit {
-                    putString("user_dob", dobText)
-                    putInt("user_age", ageYears)
-                    putString("user_weight", weightLbs)
-                    putString("user_height_ft", heightFt)
-                    putString("user_height_in", heightIn)
-                    putBoolean("user_is_male", isMale)
-                    putString("user_activity_level", selectedActivityLevel.name)
-                    putStringSet("user_goals", selectedGoals)
-                    putFloat("target_calories", targets.targetCalories)
-                    putFloat("target_protein", targets.targetProtein)
-                }
-                Toast.makeText(context, "Targets updated!", Toast.LENGTH_SHORT).show()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = selectedGoals.isNotEmpty()
-        ) {
-            Text("Update Macros & Targets")
-        }
-    }
-}
+// DietConfigSection removed to complete legacy diet purge.

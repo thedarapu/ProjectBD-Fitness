@@ -46,10 +46,15 @@ import net.darapu.projectbd.ui.components.InteractiveActivityRings
 import net.darapu.projectbd.ui.components.MetricDetailRow
 import net.darapu.projectbd.ui.components.MetricType
 import net.darapu.projectbd.ui.components.RingData
+import net.darapu.projectbd.ui.components.MuscleGroupMap
 import net.darapu.projectbd.domain.models.SetRecord
 import net.darapu.projectbd.domain.models.WorkoutDay
+import net.darapu.projectbd.domain.usecase.CalculateOneRepMaxUseCase
 import java.time.Duration
 import java.time.ZonedDateTime
+import androidx.compose.animation.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 
 @Composable
@@ -67,291 +72,174 @@ fun WorkoutScreen(
         return
     }
 
-    val healthConnectClient = remember {
-        try {
-            HealthConnectClient.getOrCreate(context)
-        } catch (e: Exception) {
-            Log.e("WorkoutScreen", "Health Connect Init Error", e)
-            null
+    Box(modifier = modifier.fillMaxSize()) {
+        val healthConnectClient = remember {
+            try {
+                HealthConnectClient.getOrCreate(context)
+            } catch (e: Exception) {
+                Log.e("WorkoutScreen", "Health Connect Init Error", e)
+                null
+            }
         }
-    }
 
-    var permissionsGranted by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
+        var permissionsGranted by remember { mutableStateOf(false) }
+        var isRefreshing by remember { mutableStateOf(false) }
 
-    val permissions = setOf(
-        HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class)
-    )
+        val permissions = setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        )
 
-    val refreshMetrics = {
-        if (healthConnectClient != null && permissionsGranted) {
-            viewModel.updateMetrics(healthConnectClient)
+        val refreshMetrics = { isSilent: Boolean ->
+            if (healthConnectClient != null && permissionsGranted) {
+                viewModel.updateMetrics(healthConnectClient, isSilent)
+            }
         }
-    }
 
-    val requestPermissionLauncher = rememberLauncherForActivityResult(
-        PermissionController.createRequestPermissionResultContract()
-    ) { granted ->
-        if (granted.containsAll(permissions)) {
-            permissionsGranted = true
-            refreshMetrics()
-        } else {
-            Toast.makeText(context, "Some permissions not granted. Activity rings may be incomplete.", Toast.LENGTH_LONG).show()
-            permissionsGranted = true
-            refreshMetrics()
+        val requestPermissionLauncher = rememberLauncherForActivityResult(
+            PermissionController.createRequestPermissionResultContract()
+        ) { granted ->
+            if (granted.containsAll(permissions)) {
+                permissionsGranted = true
+                refreshMetrics(false)
+            } else {
+                Toast.makeText(context, "Some permissions not granted. Activity rings may be incomplete.", Toast.LENGTH_LONG).show()
+                permissionsGranted = true
+                refreshMetrics(false)
+            }
         }
-    }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                if (healthConnectClient != null) {
-                    coroutineScope.launch {
-                        try {
-                            val granted = healthConnectClient.permissionController.getGrantedPermissions()
-                            val allGranted = granted.containsAll(permissions)
-                            permissionsGranted = allGranted
-                            if (allGranted) {
-                                viewModel.updateMetrics(healthConnectClient)
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    if (healthConnectClient != null) {
+                        coroutineScope.launch {
+                            try {
+                                val granted = healthConnectClient.permissionController.getGrantedPermissions()
+                                val allGranted = granted.containsAll(permissions)
+                                permissionsGranted = allGranted
+                                if (allGranted) {
+                                    viewModel.updateMetrics(healthConnectClient, isSilent = true)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("WorkoutScreen", "Error on resume", e)
                             }
-                        } catch (e: Exception) {
-                            Log.e("WorkoutScreen", "Error on resume", e)
                         }
                     }
                 }
             }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Removed Daily Activity section as per user request
+            
+            item {
                 Text(
-                    text = "Daily Activity",
+                    text = "Workout Plan",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
-                if (isRefreshing) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                }
             }
-        }
 
-        item {
-            if (healthConnectClient == null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "Health Connect is not available on this device.",
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Could not open Play Store", Toast.LENGTH_SHORT).show()
-                        }
-                    }) {
-                        Text("Install Health Connect")
-                    }
-                }
-            } else if (!permissionsGranted) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Permissions required to read activity data.", textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            requestPermissionLauncher.launch(permissions)
-                        },
-                        modifier = Modifier.fillMaxWidth()
+            if (uiState.workoutDays.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Text("Grant Health Permissions")
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedButton(
-                        onClick = {
-                            val intent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
-                            try {
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                val settingsIntent = Intent(Settings.ACTION_SETTINGS)
-                                context.startActivity(settingsIntent)
+                        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No workout plan created yet.", textAlign = TextAlign.Center)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = {
+                                Toast.makeText(context, "Please go to Config to create a plan.", Toast.LENGTH_LONG).show()
+                            }) {
+                                Icon(Icons.Default.Build, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Create Plan in Config")
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Settings, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open Health Connect Settings")
+                        }
                     }
                 }
             } else {
-                WorkoutActivityRings(
-                    metrics = ActivityMetrics(uiState.steps, uiState.activeCalories, uiState.exerciseMinutes, uiState.standHours),
-                    goals = ActivityMetrics(uiState.stepGoal.toLong(), uiState.moveGoal.toDouble(), uiState.exerciseGoal.toLong(), uiState.standGoal)
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Button(
-                    onClick = { refreshMetrics() },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
-                    enabled = !isRefreshing
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (isRefreshing) "Refreshing..." else "Refresh Activity")
+                items(uiState.workoutDays.size) { dayIndex ->
+                    WorkoutDayCard(
+                        day = uiState.workoutDays[dayIndex],
+                        restTimerSeconds = uiState.restTimerSeconds,
+                        isTimerRunning = uiState.isTimerRunning,
+                        onDayUpdated = { updatedDay ->
+                            val newList = uiState.workoutDays.toMutableList()
+                            newList[dayIndex] = updatedDay
+                            viewModel.updateWorkoutPlan(newList)
+                        },
+                        onStartTimer = { viewModel.startRestTimer(90) }
+                    )
                 }
             }
-        }
-
-        item {
-            HorizontalDivider()
-        }
-
-        item {
-            Text(
-                text = "Workout Plan",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        if (uiState.workoutDays.isEmpty()) {
+            
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+
+        // Persistent Rest Timer Overlay
+        if (uiState.isTimerRunning) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Surface(
+                    onClick = { viewModel.cancelRestTimer() },
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 4.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No workout plan created yet.", textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
-                            Toast.makeText(context, "Please go to Config to create a plan.", Toast.LENGTH_LONG).show()
-                        }) {
-                            Icon(Icons.Default.Build, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Create Plan in Config")
-                        }
+                    Row(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Rest Timer: ${uiState.restTimerSeconds}s",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(16.dp))
                     }
                 }
             }
-        } else {
-            items(uiState.workoutDays.size) { dayIndex ->
-                WorkoutDayCard(
-                    day = uiState.workoutDays[dayIndex],
-                    onDayUpdated = { updatedDay ->
-                        val newList = uiState.workoutDays.toMutableList()
-                        newList[dayIndex] = updatedDay
-                        viewModel.updateWorkoutPlan(newList)
-                    }
-                )
-            }
-        }
-        
-        item {
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-@Composable
-fun WorkoutActivityRings(metrics: ActivityMetrics, goals: ActivityMetrics) {
-    var selectedMetric by remember { mutableStateOf(MetricType.NONE) }
-    
-    val moveProgress = if (goals.activeCalories > 0) (metrics.activeCalories / goals.activeCalories).toFloat() else 0f
-    val exerciseProgress = if (goals.exerciseMinutes > 0) (metrics.exerciseMinutes.toFloat() / goals.exerciseMinutes.toFloat()) else 0f
-    val standProgress = if (goals.standHours > 0) (metrics.standHours.toFloat() / goals.standHours.toFloat()) else 0f
-    val stepsProgress = if (goals.steps > 0) (metrics.steps.toFloat() / goals.steps.toFloat()) else 0f
-
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(260.dp).clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null
-    ) { selectedMetric = MetricType.NONE }) {
-        InteractiveActivityRings(
-            rings = listOf(
-                RingData(moveProgress, Color(0xFFFA114F), MetricType.MOVE),
-                RingData(exerciseProgress, Color(0xFFADFF2F), MetricType.EXERCISE),
-                RingData(standProgress, Color(0xFF00FFFF), MetricType.STAND),
-                RingData(stepsProgress, Color(0xFF00FFCC), MetricType.STEPS)
-            ),
-            selectedMetric = selectedMetric,
-            size = 240.dp
-        )
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            val (value, label) = when (selectedMetric) {
-                MetricType.MOVE -> "${metrics.activeCalories.toInt()}" to "kcal"
-                MetricType.EXERCISE -> "${metrics.exerciseMinutes}" to "min"
-                MetricType.STAND -> "${metrics.standHours}" to "hr"
-                MetricType.STEPS -> "${metrics.steps}" to "steps"
-                else -> "${metrics.steps}" to "steps"
-            }
-            Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-    
-    Spacer(modifier = Modifier.height(16.dp))
-    
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MetricDetailRow(
-            label = "Move", 
-            value = "${metrics.activeCalories.toInt()} / ${goals.activeCalories.toInt()} kcal", 
-            color = Color(0xFFFA114F),
-            icon = Icons.Default.Whatshot,
-            isSelected = selectedMetric == MetricType.MOVE,
-            onClick = { selectedMetric = if (selectedMetric == MetricType.MOVE) MetricType.NONE else MetricType.MOVE }
-        )
-        MetricDetailRow(
-            label = "Exercise", 
-            value = "${metrics.exerciseMinutes} / ${goals.exerciseMinutes} min", 
-            color = Color(0xFFADFF2F),
-            icon = Icons.Default.Timer,
-            isSelected = selectedMetric == MetricType.EXERCISE,
-            onClick = { selectedMetric = if (selectedMetric == MetricType.EXERCISE) MetricType.NONE else MetricType.EXERCISE }
-        )
-        MetricDetailRow(
-            label = "Stand", 
-            value = "${metrics.standHours} / ${goals.standHours} hr", 
-            color = Color(0xFF00FFFF),
-            icon = Icons.Default.AccessibilityNew,
-            isSelected = selectedMetric == MetricType.STAND,
-            onClick = { selectedMetric = if (selectedMetric == MetricType.STAND) MetricType.NONE else MetricType.STAND }
-        )
-        MetricDetailRow(
-            label = "Steps", 
-            value = "${metrics.steps} / ${goals.steps}", 
-            color = Color(0xFF00FFCC),
-            icon = Icons.AutoMirrored.Filled.DirectionsRun,
-            isSelected = selectedMetric == MetricType.STEPS,
-            onClick = { selectedMetric = if (selectedMetric == MetricType.STEPS) MetricType.NONE else MetricType.STEPS }
-        )
-    }
-}
+// WorkoutActivityRings section removed per user request
 
 @Composable
-fun WorkoutDayCard(day: WorkoutDay, onDayUpdated: (WorkoutDay) -> Unit) {
+fun WorkoutDayCard(
+    day: WorkoutDay, 
+    restTimerSeconds: Int,
+    isTimerRunning: Boolean,
+    onDayUpdated: (WorkoutDay) -> Unit,
+    onStartTimer: () -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     
     Card(
@@ -385,7 +273,8 @@ fun WorkoutDayCard(day: WorkoutDay, onDayUpdated: (WorkoutDay) -> Unit) {
                             val newExercises = day.exercises.toMutableList()
                             newExercises[exIndex] = updatedEx
                             onDayUpdated(day.copy(exercises = newExercises))
-                        }
+                        },
+                        onStartTimer = onStartTimer
                     )
                     if (exIndex < day.exercises.size - 1) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 1.dp)
@@ -397,27 +286,57 @@ fun WorkoutDayCard(day: WorkoutDay, onDayUpdated: (WorkoutDay) -> Unit) {
 }
 
 @Composable
-fun ExerciseSection(exercise: Exercise, onExerciseUpdated: (Exercise) -> Unit) {
+fun ExerciseSection(
+    exercise: Exercise, 
+    onExerciseUpdated: (Exercise) -> Unit, 
+    onStartTimer: () -> Unit
+) {
+    val oneRepMaxUseCase = remember { CalculateOneRepMaxUseCase() }
+    
     Column {
-        Text(
-            text = exercise.name,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 17.sp,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = "Target: ${exercise.targetSets} sets of ${exercise.targetReps} (${exercise.targetWeight})",
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = exercise.name,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Target: ${exercise.targetSets} sets of ${exercise.targetReps} (${exercise.targetWeight})",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            if (exercise.primaryMuscles.isNotEmpty() || exercise.secondaryMuscles.isNotEmpty()) {
+                MuscleGroupMap(
+                    exercise = exercise,
+                    modifier = Modifier.size(80.dp)
+                )
+            }
+        }
         
         exercise.sets.forEachIndexed { setIndex, setRecord ->
+            val weightVal = setRecord.weight.toFloatOrNull() ?: 0f
+            val repsVal = setRecord.reps.toIntOrNull() ?: 0
+            val estimated1RM = if (weightVal > 0 && repsVal > 0) oneRepMaxUseCase(weightVal, repsVal) else 0
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Checkbox(
+                    checked = setRecord.reps.isNotEmpty() && setRecord.weight.isNotEmpty(), // Simplified completion check
+                    onCheckedChange = { if (it) onStartTimer() },
+                    modifier = Modifier.size(24.dp)
+                )
+
                 Text(text = "Set ${setIndex + 1}", modifier = Modifier.width(45.dp), fontSize = 14.sp)
                 
                 OutlinedTextField(
@@ -446,12 +365,19 @@ fun ExerciseSection(exercise: Exercise, onExerciseUpdated: (Exercise) -> Unit) {
                     singleLine = true
                 )
                 
-                IconButton(onClick = {
-                    val newSets = exercise.sets.toMutableList()
-                    newSets.removeAt(setIndex)
-                    onExerciseUpdated(exercise.copy(sets = newSets))
-                }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove Set", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(40.dp)) {
+                    if (estimated1RM > 0) {
+                        Text("1RM", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text("$estimated1RM", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    } else {
+                        IconButton(onClick = {
+                            val newSets = exercise.sets.toMutableList()
+                            newSets.removeAt(setIndex)
+                            onExerciseUpdated(exercise.copy(sets = newSets))
+                        }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "Remove Set", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        }
+                    }
                 }
             }
         }

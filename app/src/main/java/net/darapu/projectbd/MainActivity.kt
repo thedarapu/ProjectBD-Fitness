@@ -22,8 +22,6 @@ import net.darapu.projectbd.data.local.AppDatabase
 import net.darapu.projectbd.data.repository.ActivityRepository
 import net.darapu.projectbd.data.repository.SettingsRepository
 import net.darapu.projectbd.ui.screens.config.ConfigScreen
-import net.darapu.projectbd.ui.screens.diet.DietScreen
-import net.darapu.projectbd.ui.screens.diet.DietViewModel
 import net.darapu.projectbd.ui.screens.history.HistoryContent
 import net.darapu.projectbd.ui.screens.home.HomeScreen
 import net.darapu.projectbd.ui.screens.home.HomeViewModel
@@ -75,7 +73,6 @@ class MainActivity : ComponentActivity() {
 
 sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Home : Screen("home", "Home", Icons.Filled.Home)
-    object Diet : Screen("diet", "Diet", Icons.Filled.Favorite)
     object Workout : Screen("workout", "Workout", Icons.Filled.Star)
     object Config : Screen("config", "Config", Icons.Filled.Settings)
 }
@@ -94,7 +91,6 @@ fun MainScreen(modifier: Modifier = Modifier) {
 
     val items = listOf(
         Screen.Home,
-        Screen.Diet,
         Screen.Workout,
         Screen.Config
     )
@@ -153,10 +149,6 @@ fun MainScreen(modifier: Modifier = Modifier) {
                     composable(Screen.Home.route) {
                         val viewModel = remember { HomeViewModel(activityRepository, settingsRepository) }
                         HomeScreen(viewModel = viewModel)
-                    }
-                    composable(Screen.Diet.route) {
-                        val viewModel = remember { DietViewModel(database, settingsRepository) }
-                        DietScreen(viewModel = viewModel)
                     }
                     composable(Screen.Workout.route) {
                         val viewModel = remember { WorkoutViewModel(activityRepository, settingsRepository) }

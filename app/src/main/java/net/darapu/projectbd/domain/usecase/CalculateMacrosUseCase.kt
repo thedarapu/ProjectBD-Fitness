@@ -1,15 +1,16 @@
 package net.darapu.projectbd.domain.usecase
 
 import net.darapu.projectbd.domain.models.ActivityLevel
-import kotlin.math.max
 
 data class MacroTargets(
     val targetCalories: Float,
-    val targetProtein: Float
+    val targetProtein: Float,
+    val targetCarbs: Float,
+    val targetFat: Float
 )
 
 class CalculateMacrosUseCase {
-    fun invoke(
+    operator fun invoke(
         weightLbs: Float,
         heightFt: Float,
         heightIn: Float,
@@ -18,32 +19,43 @@ class CalculateMacrosUseCase {
         activityLevel: ActivityLevel,
         goals: Set<String>
     ): MacroTargets {
-        val w = weightLbs * 0.453592f
-        val h = (heightFt * 30.48f) + (heightIn * 2.54f)
-        val a = ageYears.toFloat()
+        // Simple Mifflin-St Jeor Equation
+        val weightKg = weightLbs * 0.453592f
+        val heightCm = (heightFt * 12 + heightIn) * 2.54f
         
-        var bmr = (10 * w) + (6.25f * h) - (5 * a)
-        bmr += if (isMale) 5 else -161
-        val baseTdee = bmr * activityLevel.multiplier
-        
-        var calModifier = 0f
-        var proteinMultiplier = 1.8f
-        
-        if ("Fat Loss" in goals) {
-            calModifier -= 500f
-            proteinMultiplier = max(proteinMultiplier, 2.2f)
-        }
-        if ("Build Muscle" in goals) {
-            calModifier += 300f
-            proteinMultiplier = max(proteinMultiplier, 2.0f)
-        }
-        if ("Stamina" in goals) {
-            calModifier += 200f
+        val bmr = if (isMale) {
+            (10 * weightKg) + (6.25f * heightCm) - (5 * ageYears) + 5
+        } else {
+            (10 * weightKg) + (6.25f * heightCm) - (5 * ageYears) - 161
         }
         
-        val targetCalories = baseTdee + calModifier
-        val targetProtein = w * proteinMultiplier
-
-        return MacroTargets(targetCalories, targetProtein)
+        var tdee = bmr * activityLevel.multiplier
+        
+        // Adjust based on goals
+        if (goals.contains("Fat Loss")) {
+            tdee -= 500
+        } else if (goals.contains("Build Muscle")) {
+            tdee += 300
+        }
+        
+        // Protein: 0.8g to 1.2g per lb of bodyweight
+        val proteinGrams = if (goals.contains("Build Muscle")) {
+            weightLbs * 1.0f
+        } else {
+            weightLbs * 0.8f
+        }
+        
+        // Fat: 25% of calories
+        val fatGrams = (tdee * 0.25f) / 9f
+        
+        // Carbs: Remainder
+        val carbsGrams = (tdee - (proteinGrams * 4) - (fatGrams * 9)) / 4f
+        
+        return MacroTargets(
+            targetCalories = tdee,
+            targetProtein = proteinGrams,
+            targetCarbs = carbsGrams,
+            targetFat = fatGrams
+        )
     }
 }

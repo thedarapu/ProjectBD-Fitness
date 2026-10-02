@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="400dp"
+    android:viewportWidth="1400"
+    android:viewportHeight="1400">
+    <!-- Triceps (Back View) -->
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M1045,310 c-5,-5 -25,5 -45,15 -20,10 -35,30 -30,40 5,10 20,5 35,-5 15,-10 30,-25 40,-40 5,-5 5,-10 0,-10 z" />
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M1155,310 c5,-5 25,5 45,15 20,10 35,30 30,40 -5,10 -20,5 -35,-5 -15,-10 -30,-25 -40,-40 -5,-5 -5,-10 0,-10 z" />
+</vector>

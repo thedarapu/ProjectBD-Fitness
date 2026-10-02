@@ -85,12 +85,14 @@ fun MetricDetailRow(
     color: Color, 
     icon: ImageVector,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
         color = if (isSelected) color.copy(alpha = 0.1f) else Color.Transparent,
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically, 

@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.darapu.projectbd.data.repository.ActivityRepository
 import net.darapu.projectbd.data.repository.SettingsRepository
-import net.darapu.projectbd.domain.models.deserializeMealPlan
 import java.time.LocalDate
 
 data class HomeUiState(
@@ -21,15 +20,7 @@ data class HomeUiState(
     val targetSteps: Int = 10000,
     val targetMove: Int = 500,
     val targetExercise: Int = 30,
-    val targetStand: Int = 12,
-    val totalCalories: Float = 0f,
-    val totalProtein: Float = 0f,
-    val totalCarbs: Float = 0f,
-    val totalFat: Float = 0f,
-    val targetCalories: Float = 2000f,
-    val targetProtein: Float = 150f,
-    val targetFat: Float = 55.5f,
-    val targetCarbs: Float = 225f
+    val targetStand: Int = 12
 )
 
 class HomeViewModel(
@@ -53,18 +44,6 @@ class HomeViewModel(
                 val targetExercise = settingsRepository.getTargetExerciseMinutes()
                 val targetStand = settingsRepository.getTargetStandHours()
 
-                val targetCalories = settingsRepository.getTargetCalories()
-                val targetProtein = settingsRepository.getTargetProtein()
-                val targetFat = (targetCalories * 0.25f) / 9f
-                val targetCarbs = (targetCalories - (targetProtein * 4) - (targetFat * 9)) / 4f
-
-                val mealPlan = activity?.mealsJson?.let { deserializeMealPlan(it) } ?: emptyList()
-                val eatenMeals = mealPlan.filter { it.isEaten }
-                val totalCal = eatenMeals.sumOf { it.totalCalories.toDouble() }.toFloat()
-                val totalPro = eatenMeals.sumOf { it.totalProtein.toDouble() }.toFloat()
-                val totalCar = eatenMeals.sumOf { it.totalCarbs.toDouble() }.toFloat()
-                val totalFat = eatenMeals.sumOf { it.totalFat.toDouble() }.toFloat()
-
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -75,15 +54,7 @@ class HomeViewModel(
                         targetSteps = targetSteps,
                         targetMove = targetMove,
                         targetExercise = targetExercise,
-                        targetStand = targetStand,
-                        totalCalories = totalCal,
-                        totalProtein = totalPro,
-                        totalCarbs = totalCar,
-                        totalFat = totalFat,
-                        targetCalories = targetCalories,
-                        targetProtein = targetProtein,
-                        targetFat = targetFat,
-                        targetCarbs = targetCarbs
+                        targetStand = targetStand
                     )
                 }
             }
